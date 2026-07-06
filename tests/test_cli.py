@@ -14,3 +14,5 @@ def test_cli_parses_browser_commands() -> None:
 
     paused_open_args = parser.parse_args(["browser-open-vacancy", "10", "--pause"])
     assert paused_open_args.pause is True
+
+    assert parser.parse_args(["hh-api-check"]).command == "hh-api-check"

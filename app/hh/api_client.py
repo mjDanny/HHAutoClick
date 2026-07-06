@@ -1,19 +1,118 @@
 import logging
+from json import JSONDecodeError
 from types import TracebackType
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
 from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
+BODY_PREVIEW_LIMIT = 500
 
 
-class HHApiForbiddenError(RuntimeError):
-    def __init__(self) -> None:
-        super().__init__(
-            "hh API returned 403 forbidden. Search cannot continue from this network/environment."
+class HHApiError(RuntimeError):
+    def __init__(
+        self,
+        *,
+        status_code: int | None,
+        message: str,
+        response_body: str | None = None,
+        request_id: str | None = None,
+        server: str | None = None,
+        url: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.message = message
+        self.response_body = response_body
+        self.request_id = request_id
+        self.server = server
+        self.url = url
+
+    @classmethod
+    def from_response(cls, response: httpx.Response) -> "HHApiError":
+        body_preview = _safe_body_preview(response)
+        body_json = _safe_json(response)
+        request_id = _request_id(response, body_json)
+        server = response.headers.get("server")
+        status_code = response.status_code
+        is_ddos_guard = server is not None and "ddos-guard" in server.lower()
+        is_forbidden = (
+            status_code == 403
+            or is_ddos_guard
+            or _has_forbidden_error(body_json)
         )
+
+        if is_forbidden:
+            source = " from ddos-guard" if is_ddos_guard else ""
+            message = (
+                f"hh API returned 403 forbidden{source}. "
+                "Search cannot continue from this network/environment."
+            )
+        else:
+            reason = response.reason_phrase.lower() or "error"
+            message = f"hh API returned {status_code} {reason}"
+            if body_preview:
+                message = f"{message}: {body_preview}"
+
+        if request_id:
+            message = f"{message} request_id={request_id}"
+
+        return cls(
+            status_code=status_code,
+            message=message,
+            response_body=body_preview,
+            request_id=request_id,
+            server=server,
+            url=_safe_url(response.request.url),
+        )
+
+
+HHApiForbiddenError = HHApiError
+
+
+def _safe_body_preview(response: httpx.Response) -> str | None:
+    text = response.text.strip()
+    if not text:
+        return None
+    return text[:BODY_PREVIEW_LIMIT]
+
+
+def _safe_json(response: httpx.Response) -> Any:
+    try:
+        return response.json()
+    except (JSONDecodeError, ValueError):
+        return None
+
+
+def _request_id(response: httpx.Response, body_json: Any) -> str | None:
+    header_request_id = response.headers.get("x-request-id")
+    if header_request_id:
+        return header_request_id
+    if isinstance(body_json, dict):
+        value = body_json.get("request_id")
+        if isinstance(value, str):
+            return value
+    return None
+
+
+def _has_forbidden_error(body_json: Any) -> bool:
+    if not isinstance(body_json, dict):
+        return False
+    errors = body_json.get("errors")
+    if not isinstance(errors, list):
+        return False
+    return any(isinstance(error, dict) and error.get("type") == "forbidden" for error in errors)
+
+
+def _safe_url(url: httpx.URL) -> str:
+    parts = urlsplit(str(url))
+    netloc = parts.hostname or ""
+    if parts.port:
+        netloc = f"{netloc}:{parts.port}"
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, ""))
 
 
 class HHApiClient:
@@ -57,11 +156,9 @@ class HHApiClient:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 403:
-                logger.warning("hh.ru API returned 403 forbidden: %s %s", method, path)
-                raise HHApiForbiddenError() from exc
-            logger.exception("hh.ru API request failed: %s %s", method, path)
-            raise
+            error = HHApiError.from_response(exc.response)
+            logger.warning("hh.ru API request failed: %s %s: %s", method, path, error.message)
+            raise error from exc
         except httpx.HTTPError:
             logger.exception("hh.ru API request failed: %s %s", method, path)
             raise

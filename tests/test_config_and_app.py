@@ -43,6 +43,13 @@ def test_settings_empty_optional_env_values_become_none(monkeypatch: pytest.Monk
     assert settings.openai_compatible_api_key is None
 
 
+def test_settings_reject_empty_hh_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HH_USER_AGENT", "")
+
+    with pytest.raises(ValueError, match="HH_USER_AGENT must not be empty"):
+        Settings()
+
+
 def test_yaml_configs_load() -> None:
     profile = load_profile(Path("configs/profile.example.yaml"))
     searches = load_searches(Path("configs/searches.example.yaml"))

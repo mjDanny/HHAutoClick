@@ -68,6 +68,13 @@ class Settings(BaseSettings):
             return None
         return value
 
+    @field_validator("hh_user_agent")
+    @classmethod
+    def hh_user_agent_must_not_be_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("HH_USER_AGENT must not be empty")
+        return value
+
     @field_validator("min_score_for_review", "min_score_for_auto_apply")
     @classmethod
     def score_must_be_percent(cls, value: int) -> int:

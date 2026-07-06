@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.scorer import RuleBasedVacancyScorer
 from app.core.config import CandidateProfile, SearchesConfig
-from app.hh.api_client import HHApiForbiddenError
+from app.hh.api_client import HHApiError
 from app.hh.filters import BlacklistFilter
 from app.hh.normalizer import normalize_vacancy
 from app.storage.repositories import BlacklistRepository, EventLogRepository, VacancyRepository
@@ -74,8 +74,8 @@ class ReadOnlyVacancyPipeline:
 
             try:
                 payload = await self.hh_client.search_vacancies(params)
-            except HHApiForbiddenError as exc:
-                self._record_error(summary, str(exc))
+            except HHApiError as exc:
+                self._record_error(summary, f"search {search.name!r} failed: {exc.message}")
                 self.repository.session.commit()
                 continue
             except Exception as exc:  # noqa: BLE001

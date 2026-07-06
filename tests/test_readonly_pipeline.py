@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import CandidateProfile, SearchesConfig
-from app.hh.api_client import HHApiForbiddenError
+from app.hh.api_client import HHApiError
 from app.hh.normalizer import normalize_vacancy
 from app.services.readonly_pipeline import ReadOnlyVacancyPipeline
 from app.storage.db import Base
@@ -30,7 +30,16 @@ class FakeHHClient:
 class ForbiddenHHClient(FakeHHClient):
     async def search_vacancies(self, params: dict[str, Any]) -> dict[str, Any]:
         self.search_calls.append(params)
-        raise HHApiForbiddenError()
+        raise HHApiError(
+            status_code=403,
+            message=(
+                "hh API returned 403 forbidden from ddos-guard. "
+                "Search cannot continue from this network/environment. "
+                "request_id=mock-request-id"
+            ),
+            request_id="mock-request-id",
+            server="ddos-guard",
+        )
 
 
 def make_session() -> Session:
@@ -109,7 +118,8 @@ async def test_readonly_pipeline_reports_hh_api_forbidden(profile: CandidateProf
     assert summary.errors == 1
     assert summary.saved == 0
     assert summary.error_messages == [
-        "hh API returned 403 forbidden. Search cannot continue from this network/environment."
+        "search 'Python' failed: hh API returned 403 forbidden from ddos-guard. "
+        "Search cannot continue from this network/environment. request_id=mock-request-id"
     ]
 
 

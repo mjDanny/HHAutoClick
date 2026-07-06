@@ -134,6 +134,14 @@ Web UI показывает состояние browser-profile login check на 
 
 Pipeline не отправляет отклики. Он только ищет вакансии через официальный API hh.ru, получает детали, нормализует данные, применяет blacklist/dedupe, считает rule-based score и сохраняет результат в SQLite.
 
+Диагностика минимального запроса к hh API без запуска pipeline:
+
+```bash
+./venv/bin/python -m app.cli hh-api-check
+```
+
+Команда делает `GET /vacancies?text=Python&per_page=1` и печатает status, server, request_id, короткий body preview и понятное сообщение об ошибке.
+
 Запуск через API:
 
 ```bash

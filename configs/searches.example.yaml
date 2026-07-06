@@ -1,0 +1,22 @@
+searches:
+  - name: "Python Backend"
+    text: "Python Backend FastAPI"
+    area: "1"
+    schedule: "remote"
+    per_page: 50
+  - name: "AI Backend"
+    text: "Python AI Backend LLM"
+    area: "1"
+    schedule: "remote"
+    per_page: 50
+blacklist:
+  title_terms:
+    - "1C"
+    - "PHP"
+    - "Frontend"
+    - "QA"
+    - "DevOps"
+  company_terms: []
+limits:
+  max_pages_per_search: 3
+

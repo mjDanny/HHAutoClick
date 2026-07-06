@@ -1,0 +1,64 @@
+candidate:
+  position: "Python Backend / AI Backend Developer"
+  contacts:
+    telegram: "@mjDanny"
+    email: "bakhvalovfresh2014@gmail.com"
+  confirmed_skills:
+    - Python
+    - FastAPI
+    - Flask
+    - REST API
+    - SQL
+    - PostgreSQL
+    - SQLAlchemy
+    - Docker
+    - Docker Compose
+    - Linux
+    - Git
+    - OOP
+    - OpenAI API
+    - LangChain
+    - RAG
+    - Hugging Face
+    - NLP
+    - TTS
+    - AI chat bots
+    - Telegram bots
+    - CRM integrations
+    - Google Sheets integrations
+    - AI product backend
+    - API integrations
+    - business process automation
+    - user scenario processing
+    - bug fixing
+    - backend stability improvements
+    - long-running generation tasks
+  growth_skills:
+    - Kafka
+    - RabbitMQ
+    - Celery
+    - Kubernetes
+    - CI/CD
+    - observability
+    - ClickHouse
+    - MCP
+    - LangGraph
+    - PyTorch
+    - TensorFlow
+    - Keras
+    - OpenCV
+    - scikit-learn
+  forbidden_claims:
+    - "Do not claim confident production experience with Kafka, RabbitMQ, Celery, Kubernetes, CI/CD, observability, ClickHouse, MCP, LangGraph, PyTorch, TensorFlow/Keras, OpenCV, scikit-learn, FinTech scoring, document parsing."
+  preferences:
+    target_titles:
+      - Python Backend Developer
+      - AI Backend Developer
+      - Backend Developer Python
+    preferred_domains:
+      - AI products
+      - backend services
+      - API integrations
+      - automation
+    remote_is_positive: true
+

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from sqlalchemy import inspect
 
 from app.core.config import (
     MissingConfigError,
@@ -10,6 +11,8 @@ from app.core.config import (
     load_searches,
 )
 from app.main import create_app
+from app.storage.db import SessionLocal
+from app.storage.models import Vacancy
 
 
 def test_settings_defaults_are_review_first() -> None:
@@ -47,3 +50,18 @@ def test_fastapi_app_smoke() -> None:
     app = create_app(Settings())
 
     assert app.title == "Personal HH Job Autopilot"
+
+
+def test_create_app_uses_custom_database_url(tmp_path) -> None:
+    database_path = tmp_path / "custom.db"
+    settings = Settings(database_url=f"sqlite:///{database_path}")
+
+    create_app(settings)
+
+    assert database_path.exists()
+    session = SessionLocal()
+    try:
+        assert session.bind is not None
+        assert inspect(session.bind).has_table(Vacancy.__tablename__)
+    finally:
+        session.close()

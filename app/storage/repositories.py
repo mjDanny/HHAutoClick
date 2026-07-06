@@ -112,6 +112,25 @@ class VacancyRepository:
         )
         return self.session.scalar(statement)
 
+    def latest_scores_for_vacancies(self, vacancy_ids: list[int]) -> dict[int, VacancyScore]:
+        if not vacancy_ids:
+            return {}
+
+        latest_score_ids = (
+            select(func.max(VacancyScore.id).label("id"))
+            .where(VacancyScore.vacancy_id.in_(vacancy_ids))
+            .group_by(VacancyScore.vacancy_id)
+            .subquery()
+        )
+        statement = select(VacancyScore).join(
+            latest_score_ids,
+            VacancyScore.id == latest_score_ids.c.id,
+        )
+        return {
+            score.vacancy_id: score
+            for score in self.session.scalars(statement)
+        }
+
     def list_vacancies(
         self,
         *,
@@ -136,17 +155,25 @@ class VacancyRepository:
                 )
             )
 
-        vacancies = list(self.session.scalars(statement).all())
-        with_scores = [
-            VacancyWithScore(vacancy, self.latest_score(vacancy.id)) for vacancy in vacancies
-        ]
         if min_score is not None:
-            with_scores = [
-                item
-                for item in with_scores
-                if item.score is not None and item.score.score >= min_score
-            ]
-        return with_scores[offset : offset + limit]
+            latest_score_ids = (
+                select(func.max(VacancyScore.id).label("id"))
+                .group_by(VacancyScore.vacancy_id)
+                .subquery()
+            )
+            statement = (
+                statement.join(VacancyScore, VacancyScore.vacancy_id == Vacancy.id)
+                .join(latest_score_ids, VacancyScore.id == latest_score_ids.c.id)
+                .where(VacancyScore.score >= min_score)
+            )
+
+        statement = statement.limit(limit).offset(offset)
+        vacancies = list(self.session.scalars(statement).all())
+        scores = self.latest_scores_for_vacancies([vacancy.id for vacancy in vacancies])
+        return [
+            VacancyWithScore(vacancy, scores.get(vacancy.id))
+            for vacancy in vacancies
+        ]
 
     def get_with_score(self, vacancy_id: int) -> VacancyWithScore | None:
         vacancy = self.session.get(Vacancy, vacancy_id)

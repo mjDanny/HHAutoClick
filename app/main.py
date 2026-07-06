@@ -15,7 +15,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Personal HH Job Autopilot", version="0.1.0")
     app.state.settings = app_settings
-    init_db()
+    init_db(app_settings.database_url)
     app.include_router(health_router)
     app.include_router(pipeline_router)
     app.include_router(vacancies_router)

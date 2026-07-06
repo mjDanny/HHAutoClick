@@ -92,6 +92,10 @@ class ReadOnlyVacancyPipeline:
             return
 
         vacancy_id = str(item["id"])
+        if self.repository.exists_by_hh_id(vacancy_id):
+            summary.duplicates += 1
+            return
+
         try:
             detail = await self.hh_client.get_vacancy(vacancy_id)
             vacancy = normalize_vacancy(detail)

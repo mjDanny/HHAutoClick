@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import CandidateProfile, SearchesConfig
+from app.hh.normalizer import normalize_vacancy
 from app.services.readonly_pipeline import ReadOnlyVacancyPipeline
 from app.storage.db import Base
 from app.storage.repositories import VacancyRepository
@@ -104,6 +105,29 @@ async def test_readonly_pipeline_detects_duplicates(profile: CandidateProfile) -
     assert second.saved == 0
 
 
+async def test_readonly_pipeline_skips_known_hh_id_before_detail_request(
+    profile: CandidateProfile,
+) -> None:
+    session = make_session()
+    repository = VacancyRepository(session)
+    repository.add_from_normalized(normalize_vacancy(vacancy_payload("1")))
+    session.commit()
+
+    client = FakeHHClient({"1": vacancy_payload("1")})
+    pipeline = ReadOnlyVacancyPipeline(
+        hh_client=client,
+        session=session,
+        profile=profile,
+        searches_config=make_searches(),
+    )
+
+    summary = await pipeline.run()
+
+    assert summary.duplicates == 1
+    assert summary.saved == 0
+    assert client.detail_calls == []
+
+
 async def test_readonly_pipeline_skips_blacklisted_title(profile: CandidateProfile) -> None:
     session = make_session()
     client = FakeHHClient({"1": vacancy_payload("1", title="PHP Developer")})
@@ -120,3 +144,25 @@ async def test_readonly_pipeline_skips_blacklisted_title(profile: CandidateProfi
     assert summary.saved == 0
     assert VacancyRepository(session).stats()["total"] == 0
 
+
+def test_repository_list_vacancies_limit_offset_min_score_and_newest_first() -> None:
+    session = make_session()
+    repository = VacancyRepository(session)
+    scores = [40, 70, 90]
+
+    for index, score in enumerate(scores, start=1):
+        vacancy = repository.add_from_normalized(
+            normalize_vacancy(vacancy_payload(str(index), title=f"Python Backend {index}"))
+        )
+        repository.add_score(vacancy.id, score, [f"score {score}"], ["Python"], [])
+    session.commit()
+
+    newest_first = repository.list_vacancies(limit=3)
+    limited = repository.list_vacancies(limit=1)
+    offset = repository.list_vacancies(limit=1, offset=1)
+    high_score = repository.list_vacancies(limit=10, min_score=70)
+
+    assert [item.vacancy.hh_id for item in newest_first] == ["3", "2", "1"]
+    assert [item.vacancy.hh_id for item in limited] == ["3"]
+    assert [item.vacancy.hh_id for item in offset] == ["2"]
+    assert [item.vacancy.hh_id for item in high_score] == ["3", "2"]

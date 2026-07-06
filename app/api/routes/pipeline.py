@@ -22,11 +22,12 @@ async def run_readonly_pipeline(
     except MissingConfigError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    pipeline = ReadOnlyVacancyPipeline(
-        hh_client=HHApiClient(settings),
-        session=session,
-        profile=profile,
-        searches_config=searches,
-    )
-    summary = await pipeline.run()
+    async with HHApiClient(settings) as hh_client:
+        pipeline = ReadOnlyVacancyPipeline(
+            hh_client=hh_client,
+            session=session,
+            profile=profile,
+            searches_config=searches,
+        )
+        summary = await pipeline.run()
     return summary.to_dict()

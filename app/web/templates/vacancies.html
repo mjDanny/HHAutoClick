@@ -42,7 +42,7 @@
           <td>{{ vacancy.area or "Not specified" }}</td>
           <td>{{ vacancy.salary_text or "Not specified" }}</td>
           <td class="score">{{ vacancy.score.score if vacancy.score else "N/A" }}</td>
-          <td>{{ vacancy.status }}</td>
+          <td><span class="status status-{{ vacancy.status }}">{{ vacancy.status }}</span></td>
           <td>{{ vacancy.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
         </tr>
       {% else %}
@@ -53,4 +53,3 @@
     </tbody>
   </table>
 {% endblock %}
-

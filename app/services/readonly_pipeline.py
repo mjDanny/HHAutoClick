@@ -8,7 +8,7 @@ from app.ai.scorer import RuleBasedVacancyScorer
 from app.core.config import CandidateProfile, SearchesConfig
 from app.hh.filters import BlacklistFilter
 from app.hh.normalizer import normalize_vacancy
-from app.storage.repositories import VacancyRepository
+from app.storage.repositories import BlacklistRepository, VacancyRepository
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,7 @@ class ReadOnlyVacancyPipeline:
     ) -> None:
         self.hh_client = hh_client
         self.repository = VacancyRepository(session)
+        self.blacklist_repository = BlacklistRepository(session)
         self.profile = profile
         self.searches_config = searches_config
         self.scorer = scorer or RuleBasedVacancyScorer()
@@ -106,6 +107,13 @@ class ReadOnlyVacancyPipeline:
             blacklist_decision = self.blacklist.check(vacancy)
             if not blacklist_decision.allowed:
                 summary.blacklisted += 1
+                return
+
+            if self.blacklist_repository.is_company_blacklisted(vacancy.company):
+                self.repository.add_from_normalized(vacancy, status="blacklisted")
+                self.repository.session.commit()
+                summary.blacklisted += 1
+                summary.saved += 1
                 return
 
             model = self.repository.add_from_normalized(vacancy)

@@ -10,6 +10,7 @@ MVP намеренно построен вокруг безопасного ре
 - официальный hh.ru API client для поиска и получения вакансий;
 - read-only pipeline: search config -> hh API -> normalize -> filter -> score -> store;
 - JSON API и простой server-rendered dashboard для просмотра вакансий;
+- локальный review workflow: skip, blacklist company, cover letter drafts and validation;
 - foundation для отдельного Playwright persistent browser profile;
 - нормализация вакансий;
 - rule-based scoring под профиль Python Backend / AI Backend Developer;
@@ -100,8 +101,31 @@ http://127.0.0.1:8000/vacancies
 - `GET /api/vacancies`
 - `GET /api/vacancies/{vacancy_id}`
 - `GET /api/stats`
+- `POST /api/vacancies/{vacancy_id}/skip`
+- `POST /api/vacancies/{vacancy_id}/blacklist-company`
+- `POST /api/vacancies/{vacancy_id}/cover-letter/generate`
+- `POST /api/vacancies/{vacancy_id}/cover-letter/rewrite`
+- `GET /api/vacancies/{vacancy_id}/cover-letters`
+- `GET /api/blacklist`
 
 `GET /api/vacancies` поддерживает `limit`, `offset`, `min_score`, `status`, `company`, `q`.
+
+## Review Workflow
+
+Все review-действия пока локальные: они меняют SQLite-состояние и не отправляют отклики на hh.ru.
+
+На странице `http://127.0.0.1:8000/vacancies/{id}` можно:
+
+- увидеть score, reasons и concerns;
+- сгенерировать cover letter draft;
+- переписать draft с дополнительной инструкцией;
+- увидеть validation status и validation errors;
+- пометить вакансию как `skipped`;
+- добавить компанию в persistent blacklist.
+
+Persistent company blacklist учитывается будущими read-only pipeline runs. Если новая вакансия приходит от blacklisted company, она сохраняется со статусом `blacklisted`, чтобы было видно, почему она не попала в обычный review.
+
+Cover letter validation блокирует уверенные claims по неподтверждённым технологиям и сохраняет ошибки в базе. При невалидном draft вакансия получает статус `needs_manual_review`; при валидном draft - `draft_ready`.
 
 ## Документация
 
@@ -114,8 +138,8 @@ http://127.0.0.1:8000/vacancies
 - реальная отправка отклика на hh.ru;
 - полноценный Telegram approval flow;
 - OAuth flow hh.ru для соискателя как optional/future mode;
+- Alembic migrations перед долгим использованием существующей базы;
 - scheduler loop с persistent jobs;
-- Alembic migrations;
 - обработка реальных форм вопросов работодателя в браузере.
 
-Следующий практичный шаг: добавить review workflow в Web/Telegram: skip, blacklist, rewrite cover letter draft и open in browser profile.
+Следующий практичный шаг: browser-profile login check или Telegram approval flow.

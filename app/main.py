@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.api.routes.health import router as health_router
 from app.api.routes.pipeline import router as pipeline_router
+from app.api.routes.review import router as review_router
 from app.api.routes.vacancies import router as vacancies_router
 from app.api.routes.web import router as web_router
 from app.core.config import Settings, get_settings
@@ -18,6 +19,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     init_db(app_settings.database_url)
     app.include_router(health_router)
     app.include_router(pipeline_router)
+    app.include_router(review_router)
     app.include_router(vacancies_router)
     app.include_router(web_router)
     return app

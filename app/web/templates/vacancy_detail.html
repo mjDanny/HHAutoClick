@@ -35,7 +35,7 @@
 
   <section class="panel">
     <h2>Status</h2>
-    <p>{{ vacancy.status }}</p>
+    <p><span class="status status-{{ vacancy.status }}">{{ vacancy.status }}</span></p>
     {% if vacancy.has_test %}
       <p class="muted">This vacancy has an employer test and requires manual review.</p>
     {% endif %}
@@ -43,5 +43,57 @@
       <p class="muted">Cover letter is required.</p>
     {% endif %}
   </section>
-{% endblock %}
 
+  <section class="panel">
+    <h2>Review actions</h2>
+    <form method="post" action="/vacancies/{{ vacancy.id }}/cover-letter/generate">
+      <button type="submit">Generate cover letter</button>
+    </form>
+    <form method="post" action="/vacancies/{{ vacancy.id }}/cover-letter/rewrite">
+      <textarea name="instruction" placeholder="Rewrite instruction, e.g. make it shorter"></textarea>
+      <button type="submit">Rewrite</button>
+    </form>
+    <form method="post" action="/vacancies/{{ vacancy.id }}/skip">
+      <input name="reason" placeholder="Skip reason">
+      <button class="secondary" type="submit">Skip</button>
+    </form>
+    <form method="post" action="/vacancies/{{ vacancy.id }}/blacklist-company">
+      <input name="reason" placeholder="Blacklist reason">
+      <button class="secondary" type="submit">Blacklist company</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Latest cover letter draft</h2>
+    {% if latest_draft %}
+      <p>Status: <span class="status status-{{ latest_draft.status }}">{{ latest_draft.status }}</span></p>
+      <p class="muted">Provider: {{ latest_draft.provider }} / {{ latest_draft.model }}</p>
+      <pre>{{ latest_draft.body }}</pre>
+      {% if latest_draft.validation_errors %}
+        <h3>Validation errors</h3>
+        <ul>
+          {% for error in latest_draft.validation_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No validation errors.</p>
+      {% endif %}
+    {% else %}
+      <p class="muted">No cover letter drafts yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Draft history</h2>
+    {% for draft in drafts %}
+      <article>
+        <h3>Draft #{{ draft.id }} - {{ draft.status }}</h3>
+        <p class="muted">{{ draft.created_at.strftime("%Y-%m-%d %H:%M") }}</p>
+        <pre>{{ draft.body }}</pre>
+      </article>
+    {% else %}
+      <p class="muted">No draft history.</p>
+    {% endfor %}
+  </section>
+{% endblock %}

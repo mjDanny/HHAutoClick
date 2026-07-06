@@ -46,6 +46,24 @@
       .score {
         font-weight: 700;
       }
+      .status {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 3px 8px;
+        background: #eef2f6;
+      }
+      .status-skipped, .status-blacklisted, .status-needs_manual_review {
+        background: #ffe8e8;
+      }
+      .status-draft_ready {
+        background: #e5f7ed;
+      }
+      textarea {
+        display: block;
+        width: 100%;
+        min-height: 72px;
+        margin: 8px 0;
+      }
       .panel {
         background: #ffffff;
         border: 1px solid #dfe3e8;
@@ -66,6 +84,9 @@
         border-radius: 6px;
         text-decoration: none;
       }
+      .secondary {
+        background: #667085;
+      }
     </style>
   </head>
   <body>
@@ -81,4 +102,3 @@
     </main>
   </body>
 </html>
-

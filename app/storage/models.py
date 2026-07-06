@@ -56,11 +56,17 @@ class CoverLetter(Base):
     vacancy_id: Mapped[int] = mapped_column(ForeignKey("vacancies.id"), index=True)
     provider: Mapped[str] = mapped_column(String(128))
     model: Mapped[str] = mapped_column(String(256))
+    status: Mapped[str] = mapped_column(String(64), default="draft", index=True)
     prompt: Mapped[str] = mapped_column(Text)
-    text: Mapped[str] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(Text)
     is_valid: Mapped[bool] = mapped_column(Boolean, default=False)
     validation_errors_json: Mapped[str] = mapped_column(Text, default="[]")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=utc_now,
+        onupdate=utc_now,
+    )
 
     vacancy: Mapped[Vacancy] = relationship(back_populates="cover_letters")
 

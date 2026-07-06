@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     database_url: str = "sqlite:///./data/app.db"
+    profile_config_path: Path = Path("configs/profile.yaml")
+    searches_config_path: Path = Path("configs/searches.yaml")
 
     hh_base_url: str = "https://api.hh.ru"
     hh_user_agent: str = "personal-hh-job-autopilot/0.1"
@@ -107,6 +109,21 @@ class SearchesConfig(BaseModel):
     limits: dict[str, int] = Field(default_factory=dict)
 
 
+class MissingConfigError(FileNotFoundError):
+    def __init__(self, path: Path, example_path: Path) -> None:
+        super().__init__(
+            f"Config file {path} does not exist. Copy {example_path} to {path} "
+            "and adjust it for your local setup."
+        )
+        self.path = path
+        self.example_path = example_path
+
+
+def _ensure_config_exists(path: Path, example_path: Path) -> None:
+    if not path.exists():
+        raise MissingConfigError(path, example_path)
+
+
 def load_profile(path: Path) -> ProfileConfig:
     with path.open("r", encoding="utf-8") as file:
         payload = yaml.safe_load(file) or {}
@@ -117,6 +134,16 @@ def load_searches(path: Path) -> SearchesConfig:
     with path.open("r", encoding="utf-8") as file:
         payload = yaml.safe_load(file) or {}
     return SearchesConfig.model_validate(payload)
+
+
+def load_local_profile(settings: Settings) -> ProfileConfig:
+    _ensure_config_exists(settings.profile_config_path, Path("configs/profile.example.yaml"))
+    return load_profile(settings.profile_config_path)
+
+
+def load_local_searches(settings: Settings) -> SearchesConfig:
+    _ensure_config_exists(settings.searches_config_path, Path("configs/searches.example.yaml"))
+    return load_searches(settings.searches_config_path)
 
 
 @lru_cache

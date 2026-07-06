@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <h1>Personal HH Job Autopilot</h1>
+    <p class="muted">Read-only dashboard for saved hh.ru vacancies. Application sending is not implemented in this stage.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Local stats</h2>
+    <p>Total vacancies: <strong>{{ stats.total }}</strong></p>
+    <p>New: <strong>{{ stats.new }}</strong></p>
+    <p>Skipped: <strong>{{ stats.skipped }}</strong></p>
+    <p><a class="button" href="/vacancies">Open vacancy list</a></p>
+  </section>
+{% endblock %}
+

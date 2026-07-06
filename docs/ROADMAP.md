@@ -18,13 +18,14 @@
 
 ## Phase 1 - Read-only pipeline
 
-- Load `profile.yaml` and `searches.yaml`.
-- Call official hh.ru API: `GET /vacancies` and `GET /vacancies/{id}`.
-- Store normalized vacancies.
-- Score all new vacancies.
-- Generate cover letters only for review-threshold vacancies.
-- Add `/vacancies` and `/vacancies/{id}` web pages with server-rendered templates.
+- Load `profile.yaml` and `searches.yaml`. Done.
+- Call official hh.ru API: `GET /vacancies` and `GET /vacancies/{id}`. Done.
+- Store normalized vacancies. Done.
+- Score all new vacancies. Done.
+- Add `/api/vacancies`, `/api/vacancies/{id}`, `/api/stats`. Done.
+- Add `/vacancies` and `/vacancies/{id}` web pages with server-rendered templates. Done.
 - Add Telegram notifications without sending actions.
+- Generate cover letters only for review-threshold vacancies.
 
 ## Phase 2 - Review workflow
 

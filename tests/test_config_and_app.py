@@ -1,6 +1,14 @@
 from pathlib import Path
 
-from app.core.config import Settings, load_profile, load_searches
+import pytest
+
+from app.core.config import (
+    MissingConfigError,
+    Settings,
+    load_local_profile,
+    load_profile,
+    load_searches,
+)
 from app.main import create_app
 
 
@@ -24,6 +32,15 @@ def test_yaml_configs_load() -> None:
     assert profile.candidate.position == "Python Backend / AI Backend Developer"
     assert profile.candidate.confirmed_skills
     assert searches.searches
+
+
+def test_missing_local_profile_explains_copy_examples(tmp_path) -> None:
+    settings = Settings(profile_config_path=tmp_path / "profile.yaml")
+
+    with pytest.raises(MissingConfigError) as exc:
+        load_local_profile(settings)
+
+    assert "configs/profile.example.yaml" in str(exc.value)
 
 
 def test_fastapi_app_smoke() -> None:

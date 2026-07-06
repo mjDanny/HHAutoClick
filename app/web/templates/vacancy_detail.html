@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <h1>{{ vacancy.title }}</h1>
+    <p>{{ vacancy.company or "Company not specified" }}</p>
+    <p class="muted">{{ vacancy.area or "Location not specified" }}</p>
+    {% if vacancy.url %}
+      <p><a class="button" href="{{ vacancy.url }}" target="_blank" rel="noopener">Open on hh.ru</a></p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Score</h2>
+    {% if vacancy.score %}
+      <p class="score">{{ vacancy.score.score }}</p>
+      <h3>Reasons</h3>
+      <ul>
+        {% for reason in vacancy.score.reasons %}
+          <li>{{ reason }}</li>
+        {% endfor %}
+      </ul>
+      <h3>Concerns</h3>
+      <ul>
+        {% for concern in vacancy.score.concerns %}
+          <li>{{ concern }}</li>
+        {% else %}
+          <li class="muted">No concerns recorded.</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No score recorded.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Status</h2>
+    <p>{{ vacancy.status }}</p>
+    {% if vacancy.has_test %}
+      <p class="muted">This vacancy has an employer test and requires manual review.</p>
+    {% endif %}
+    {% if vacancy.response_letter_required %}
+      <p class="muted">Cover letter is required.</p>
+    {% endif %}
+  </section>
+{% endblock %}
+

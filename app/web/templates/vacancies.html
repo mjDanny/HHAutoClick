@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <h1>Vacancies</h1>
+    <form method="get" action="/vacancies">
+      <input name="q" placeholder="Search title/company" value="{{ filters.q }}">
+      <input name="min_score" placeholder="Min score" value="{{ filters.min_score }}">
+      <button type="submit">Filter</button>
+    </form>
+  </section>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Vacancy</th>
+        <th>Company</th>
+        <th>Location</th>
+        <th>Salary</th>
+        <th>Score</th>
+        <th>Status</th>
+        <th>Added</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for vacancy in vacancies %}
+        <tr>
+          <td>
+            <a href="/vacancies/{{ vacancy.id }}">{{ vacancy.title }}</a>
+            {% if vacancy.url %}
+              <br><a href="{{ vacancy.url }}" target="_blank" rel="noopener">Open on hh.ru</a>
+            {% endif %}
+            {% if vacancy.score %}
+              <ul>
+                {% for reason in vacancy.score.reasons %}
+                  <li>{{ reason }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </td>
+          <td>{{ vacancy.company or "Not specified" }}</td>
+          <td>{{ vacancy.area or "Not specified" }}</td>
+          <td>{{ vacancy.salary_text or "Not specified" }}</td>
+          <td class="score">{{ vacancy.score.score if vacancy.score else "N/A" }}</td>
+          <td>{{ vacancy.status }}</td>
+          <td>{{ vacancy.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="7" class="muted">No vacancies saved yet. Run the read-only pipeline first.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+

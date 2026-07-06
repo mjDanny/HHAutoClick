@@ -14,6 +14,8 @@ htmlcov/
 *.pyo
 data/
 .local/
+configs/profile.yaml
+configs/searches.yaml
 browser-profile/
 browser_state*.json
 storage_state*.json

@@ -1,4 +1,5 @@
 import logging
+from types import TracebackType
 from typing import Any
 
 import httpx
@@ -12,6 +13,27 @@ class HHApiClient:
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None) -> None:
         self._settings = settings
         self._client = client
+        self._owned_client: httpx.AsyncClient | None = None
+
+    async def __aenter__(self) -> "HHApiClient":
+        if self._client is None:
+            self._owned_client = httpx.AsyncClient(
+                base_url=str(self._settings.hh_base_url).rstrip("/"),
+                timeout=20,
+            )
+            self._client = self._owned_client
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if self._owned_client:
+            await self._owned_client.aclose()
+            self._owned_client = None
+            self._client = None
 
     def _headers(self) -> dict[str, str]:
         headers = {"User-Agent": self._settings.hh_user_agent}
@@ -39,4 +61,3 @@ class HHApiClient:
 
     async def get_vacancy(self, vacancy_id: str) -> dict[str, Any]:
         return await self._request("GET", f"/vacancies/{vacancy_id}")
-

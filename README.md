@@ -8,6 +8,8 @@ MVP намеренно построен вокруг безопасного ре
 
 - модульная структура FastAPI + сервисы + Telegram skeleton + Playwright skeleton;
 - официальный hh.ru API client для поиска и получения вакансий;
+- read-only pipeline: search config -> hh API -> normalize -> filter -> score -> store;
+- JSON API и простой server-rendered dashboard для просмотра вакансий;
 - foundation для отдельного Playwright persistent browser profile;
 - нормализация вакансий;
 - rule-based scoring под профиль Python Backend / AI Backend Developer;
@@ -48,6 +50,15 @@ curl http://127.0.0.1:8000/health
 
 Все секреты хранятся только в `.env`, который не должен попадать в git. Примеры лежат в `.env.example`, `configs/profile.example.yaml` и `configs/searches.example.yaml`.
 
+Локальные рабочие конфиги создаются из examples и не коммитятся:
+
+```bash
+cp configs/profile.example.yaml configs/profile.yaml
+cp configs/searches.example.yaml configs/searches.yaml
+```
+
+Если `configs/profile.yaml` или `configs/searches.yaml` отсутствуют, pipeline вернёт понятную ошибку с просьбой скопировать example-файлы.
+
 Ключевые флаги:
 
 - `AUTO_APPLY_ENABLED=false` - ручное подтверждение откликов;
@@ -65,6 +76,33 @@ curl http://127.0.0.1:8000/health
 
 Если обнаружены login page, CAPTCHA/challenge, вопросы работодателя или тестовое задание, сценарий останавливается и переходит в ручной review. Основной личный браузер пользователя по умолчанию не используется.
 
+## Read-only Pipeline
+
+Pipeline не отправляет отклики. Он только ищет вакансии через официальный API hh.ru, получает детали, нормализует данные, применяет blacklist/dedupe, считает rule-based score и сохраняет результат в SQLite.
+
+Запуск через API:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/pipeline/run-readonly
+```
+
+Dashboard:
+
+```text
+http://127.0.0.1:8000/
+http://127.0.0.1:8000/vacancies
+```
+
+Доступные endpoints:
+
+- `GET /health`
+- `POST /api/pipeline/run-readonly`
+- `GET /api/vacancies`
+- `GET /api/vacancies/{vacancy_id}`
+- `GET /api/stats`
+
+`GET /api/vacancies` поддерживает `limit`, `offset`, `min_score`, `status`, `company`, `q`.
+
 ## Документация
 
 - [Research report](docs/RESEARCH_REPORT.md)
@@ -74,11 +112,10 @@ curl http://127.0.0.1:8000/health
 ## Что не реализовано в первом проходе
 
 - реальная отправка отклика на hh.ru;
-- OAuth flow hh.ru для соискателя как optional/future mode;
 - полноценный Telegram approval flow;
-- web dashboard с HTMX;
+- OAuth flow hh.ru для соискателя как optional/future mode;
 - scheduler loop с persistent jobs;
 - Alembic migrations;
 - обработка реальных форм вопросов работодателя в браузере.
 
-Следующий практичный шаг: реализовать read-only pipeline `search -> normalize -> score -> store -> show in API/Web`, затем подключить Telegram-кнопки review/skip/open.
+Следующий практичный шаг: добавить review workflow в Web/Telegram: skip, blacklist, rewrite cover letter draft и open in browser profile.

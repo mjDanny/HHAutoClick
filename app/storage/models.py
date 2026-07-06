@@ -18,6 +18,13 @@ class Vacancy(Base):
     title: Mapped[str] = mapped_column(String(512))
     company: Mapped[str | None] = mapped_column(String(512), nullable=True)
     url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    area: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    salary_text: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    experience: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    employment: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    schedule: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    status: Mapped[str] = mapped_column(String(64), default="new", index=True)
+    raw_payload_hash: Mapped[str] = mapped_column(String(64), index=True)
     has_test: Mapped[bool] = mapped_column(Boolean, default=False)
     response_letter_required: Mapped[bool] = mapped_column(Boolean, default=False)
     raw_json: Mapped[str] = mapped_column(Text, default="{}")
@@ -93,4 +100,3 @@ class EventLog(Base):
     event: Mapped[str] = mapped_column(String(256))
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-

@@ -1,7 +1,18 @@
 from pathlib import Path
 
-from app.core.config import Settings, load_profile, load_searches
+import pytest
+from sqlalchemy import inspect
+
+from app.core.config import (
+    MissingConfigError,
+    Settings,
+    load_local_profile,
+    load_profile,
+    load_searches,
+)
 from app.main import create_app
+from app.storage.db import SessionLocal
+from app.storage.models import Vacancy
 
 
 def test_settings_defaults_are_review_first() -> None:
@@ -26,7 +37,31 @@ def test_yaml_configs_load() -> None:
     assert searches.searches
 
 
+def test_missing_local_profile_explains_copy_examples(tmp_path) -> None:
+    settings = Settings(profile_config_path=tmp_path / "profile.yaml")
+
+    with pytest.raises(MissingConfigError) as exc:
+        load_local_profile(settings)
+
+    assert "configs/profile.example.yaml" in str(exc.value)
+
+
 def test_fastapi_app_smoke() -> None:
     app = create_app(Settings())
 
     assert app.title == "Personal HH Job Autopilot"
+
+
+def test_create_app_uses_custom_database_url(tmp_path) -> None:
+    database_path = tmp_path / "custom.db"
+    settings = Settings(database_url=f"sqlite:///{database_path}")
+
+    create_app(settings)
+
+    assert database_path.exists()
+    session = SessionLocal()
+    try:
+        assert session.bind is not None
+        assert inspect(session.bind).has_table(Vacancy.__tablename__)
+    finally:
+        session.close()

@@ -16,6 +16,9 @@ DEFAULT_GROWTH_ONLY_TECH = [
     "Keras",
     "OpenCV",
     "scikit-learn",
+    "FinTech",
+    "скоринг",
+    "document parsing",
 ]
 
 CONFIDENT_PATTERNS = [

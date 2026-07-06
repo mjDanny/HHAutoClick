@@ -6,8 +6,16 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.ai.scorer import ScoreResult
+from app.ai.validator import ValidationResult
 from app.hh.models import NormalizedVacancy
-from app.storage.models import Application, Vacancy, VacancyScore
+from app.storage.models import (
+    Application,
+    BlacklistEntry,
+    CoverLetter,
+    EventLog,
+    Vacancy,
+    VacancyScore,
+)
 
 
 def _salary_text(vacancy: NormalizedVacancy) -> str | None:
@@ -69,7 +77,7 @@ class VacancyRepository:
                 return existing
         return None
 
-    def add_from_normalized(self, vacancy: NormalizedVacancy) -> Vacancy:
+    def add_from_normalized(self, vacancy: NormalizedVacancy, status: str = "new") -> Vacancy:
         existing = self.find_duplicate(vacancy)
         if existing:
             return existing
@@ -84,7 +92,7 @@ class VacancyRepository:
             experience=vacancy.experience,
             employment=vacancy.employment,
             schedule=vacancy.schedule,
-            status="new",
+            status=status,
             raw_payload_hash=_payload_hash(vacancy),
             has_test=vacancy.has_test,
             response_letter_required=vacancy.response_letter_required,
@@ -201,6 +209,9 @@ class VacancyRepository:
         self.session.flush()
         return vacancy
 
+    def skip_vacancy(self, vacancy_id: int, reason: str | None = None) -> Vacancy | None:
+        return self.set_status(vacancy_id, "skipped")
+
     def add_score(
         self,
         vacancy_id: int,
@@ -219,6 +230,118 @@ class VacancyRepository:
         self.session.add(model)
         self.session.flush()
         return model
+
+
+class CoverLetterRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def create_cover_letter_draft(
+        self,
+        *,
+        vacancy_id: int,
+        prompt: str,
+        body: str,
+        provider: str,
+        model: str,
+        validation: ValidationResult,
+    ) -> CoverLetter:
+        draft = CoverLetter(
+            vacancy_id=vacancy_id,
+            prompt=prompt,
+            body=body,
+            provider=provider,
+            model=model,
+            status="valid" if validation.valid else "invalid",
+            is_valid=validation.valid,
+            validation_errors_json=json.dumps(validation.errors, ensure_ascii=False),
+        )
+        self.session.add(draft)
+        self.session.flush()
+        return draft
+
+    def list_cover_letter_drafts(self, vacancy_id: int) -> list[CoverLetter]:
+        statement = (
+            select(CoverLetter)
+            .where(CoverLetter.vacancy_id == vacancy_id)
+            .order_by(CoverLetter.created_at.desc(), CoverLetter.id.desc())
+        )
+        return list(self.session.scalars(statement))
+
+    def get_latest_cover_letter_draft(self, vacancy_id: int) -> CoverLetter | None:
+        statement = (
+            select(CoverLetter)
+            .where(CoverLetter.vacancy_id == vacancy_id)
+            .order_by(CoverLetter.created_at.desc(), CoverLetter.id.desc())
+            .limit(1)
+        )
+        return self.session.scalar(statement)
+
+    def set_cover_letter_validation(
+        self,
+        draft_id: int,
+        validation: ValidationResult,
+    ) -> CoverLetter | None:
+        draft = self.session.get(CoverLetter, draft_id)
+        if not draft:
+            return None
+        draft.is_valid = validation.valid
+        draft.status = "valid" if validation.valid else "invalid"
+        draft.validation_errors_json = json.dumps(validation.errors, ensure_ascii=False)
+        self.session.flush()
+        return draft
+
+
+class BlacklistRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def blacklist_company(self, company: str, reason: str | None = None) -> BlacklistEntry:
+        normalized = company.strip()
+        existing = self.session.scalar(
+            select(BlacklistEntry).where(
+                BlacklistEntry.kind == "company",
+                func.lower(BlacklistEntry.value) == normalized.lower(),
+            )
+        )
+        if existing:
+            if reason and not existing.reason:
+                existing.reason = reason
+                self.session.flush()
+            return existing
+
+        entry = BlacklistEntry(kind="company", value=normalized, reason=reason)
+        self.session.add(entry)
+        self.session.flush()
+        return entry
+
+    def is_company_blacklisted(self, company: str | None) -> bool:
+        if not company:
+            return False
+        statement = select(BlacklistEntry.id).where(
+            BlacklistEntry.kind == "company",
+            func.lower(BlacklistEntry.value) == company.strip().lower(),
+        )
+        return self.session.execute(statement).first() is not None
+
+    def list_entries(self) -> list[BlacklistEntry]:
+        statement = select(BlacklistEntry).order_by(BlacklistEntry.created_at.desc())
+        return list(self.session.scalars(statement))
+
+
+class EventLogRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add_event(self, level: str, event: str, message: str) -> EventLog:
+        model = EventLog(level=level, event=event, message=message)
+        self.session.add(model)
+        self.session.flush()
+        return model
+
+    def list_events(self) -> list[EventLog]:
+        statement = select(EventLog).order_by(EventLog.created_at.desc(), EventLog.id.desc())
+        return list(self.session.scalars(statement))
 
 
 class ApplicationRepository:

@@ -8,7 +8,7 @@ from app.core.config import CandidateProfile, SearchesConfig
 from app.hh.normalizer import normalize_vacancy
 from app.services.readonly_pipeline import ReadOnlyVacancyPipeline
 from app.storage.db import Base
-from app.storage.repositories import VacancyRepository
+from app.storage.repositories import BlacklistRepository, VacancyRepository
 
 
 class FakeHHClient:
@@ -143,6 +143,29 @@ async def test_readonly_pipeline_skips_blacklisted_title(profile: CandidateProfi
     assert summary.blacklisted == 1
     assert summary.saved == 0
     assert VacancyRepository(session).stats()["total"] == 0
+
+
+async def test_readonly_pipeline_saves_persistent_blacklisted_company(
+    profile: CandidateProfile,
+) -> None:
+    session = make_session()
+    BlacklistRepository(session).blacklist_company("Example", "not relevant")
+    session.commit()
+
+    client = FakeHHClient({"1": vacancy_payload("1", company="Example")})
+    pipeline = ReadOnlyVacancyPipeline(
+        hh_client=client,
+        session=session,
+        profile=profile,
+        searches_config=make_searches(),
+    )
+
+    summary = await pipeline.run()
+    vacancies = VacancyRepository(session).list_vacancies()
+
+    assert summary.blacklisted == 1
+    assert summary.saved == 1
+    assert vacancies[0].vacancy.status == "blacklisted"
 
 
 def test_repository_list_vacancies_limit_offset_min_score_and_newest_first() -> None:

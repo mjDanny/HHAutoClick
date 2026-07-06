@@ -29,11 +29,13 @@
 
 ## Phase 2 - Review workflow
 
+- Web actions: Skip, Blacklist company, Generate draft, Rewrite draft. Done.
+- Persist cover letter draft history and validation result. Done.
+- Persistent company blacklist in SQLite. Done.
+- Show latest draft, validation status, and draft history in Web UI. Done.
+- API endpoints for review actions and cover letter drafts. Done.
 - Telegram buttons: Apply, Rewrite, Skip, Blacklist, Open.
-- Web dashboard with the same decisions.
-- Persist decision history and all generated drafts.
 - Add manual letter edit endpoint.
-- Add validation status and validation error display.
 
 ## Phase 3 - Playwright persistent profile
 

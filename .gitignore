@@ -28,6 +28,7 @@ hh_cookies*.json
 *.db
 *.log
 logs/
+tmp_rewrite.json
 
 .DS_Store
 Thumbs.db

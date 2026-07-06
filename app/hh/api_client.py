@@ -9,6 +9,13 @@ from app.core.config import Settings
 logger = logging.getLogger(__name__)
 
 
+class HHApiForbiddenError(RuntimeError):
+    def __init__(self) -> None:
+        super().__init__(
+            "hh API returned 403 forbidden. Search cannot continue from this network/environment."
+        )
+
+
 class HHApiClient:
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None) -> None:
         self._settings = settings
@@ -49,6 +56,12 @@ class HHApiClient:
             response = await client.request(method, path, headers=self._headers(), **kwargs)
             response.raise_for_status()
             return response.json()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 403:
+                logger.warning("hh.ru API returned 403 forbidden: %s %s", method, path)
+                raise HHApiForbiddenError() from exc
+            logger.exception("hh.ru API request failed: %s %s", method, path)
+            raise
         except httpx.HTTPError:
             logger.exception("hh.ru API request failed: %s %s", method, path)
             raise

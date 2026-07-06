@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from app.ai.prompts.cover_letter import build_cover_letter_prompt
 from app.ai.providers.base import LLMMessage, LLMProvider, LLMRequest
-from app.ai.validator import CoverLetterValidator, ValidationResult
+from app.ai.validator import CoverLetterValidator, ValidationResult, clean_cover_letter_text
 from app.core.config import CandidateProfile
 from app.hh.models import NormalizedVacancy
 
@@ -42,9 +42,10 @@ class CoverLetterGenerator:
                 ]
             )
         )
-        validation = self.validator.validate(response.content)
+        text = clean_cover_letter_text(response.content)
+        validation = self.validator.validate(text)
         return CoverLetterDraft(
-            text=response.content,
+            text=text,
             provider=response.provider,
             model=response.model,
             validation=validation,

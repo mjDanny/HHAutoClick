@@ -138,6 +138,11 @@ def event_messages(client: TestClient) -> list[str]:
             next(session_generator)
 
 
+def vacancy_status(client: TestClient, vacancy_id: int = 1) -> str:
+    response = client.get(f"/api/vacancies/{vacancy_id}")
+    return str(response.json()["status"])
+
+
 def test_api_vacancies_and_stats(profile) -> None:
     client = make_test_client(profile)
 
@@ -234,6 +239,27 @@ def test_api_invalid_cover_letter_stores_validation_errors(profile) -> None:
     )
 
 
+def test_api_cover_letter_storage_cleans_instruction_leakage(profile) -> None:
+    client = make_test_client(profile)
+    app = cast(FastAPI, client.app)
+    app.state.llm_provider = FakeLLMProvider(
+        "\n".join(
+            [
+                "Здравствуйте! Хочу откликнуться на вакансию Python Backend Developer.",
+                "Сделайте письмо живым, деловым, ATS-friendly, не длиннее 1700 символов.",
+            ]
+        )
+    )
+
+    response = client.post("/api/vacancies/1/cover-letter/generate")
+    draft = response.json()
+
+    assert response.status_code == 200
+    assert draft["status"] == "valid"
+    assert "Сделайте письмо" not in draft["body"]
+    assert "ATS-friendly" not in draft["body"]
+
+
 def test_web_vacancy_detail_shows_draft_and_validation_status(profile) -> None:
     client = make_test_client(profile)
 
@@ -281,6 +307,7 @@ def test_browser_open_vacancy_endpoint_uses_saved_vacancy(profile) -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert vacancy_status(client) == "new"
     assert "browser_vacancy_opened" in event_names(client)
 
 
@@ -302,3 +329,4 @@ def test_browser_open_vacancy_marks_manual_review_for_captcha(profile) -> None:
     assert response.json()["status"] == "captcha"
     assert vacancy_response.json()["status"] == "needs_manual_review"
     assert "browser_challenge_detected" in event_names(client)
+    assert all("cookie" not in message.lower() for message in event_messages(client))

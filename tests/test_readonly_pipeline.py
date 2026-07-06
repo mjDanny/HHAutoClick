@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import CandidateProfile, SearchesConfig
+from app.hh.api_client import HHApiForbiddenError
 from app.hh.normalizer import normalize_vacancy
 from app.services.readonly_pipeline import ReadOnlyVacancyPipeline
 from app.storage.db import Base
@@ -24,6 +25,12 @@ class FakeHHClient:
     async def get_vacancy(self, vacancy_id: str) -> dict[str, Any]:
         self.detail_calls.append(vacancy_id)
         return self.details[vacancy_id]
+
+
+class ForbiddenHHClient(FakeHHClient):
+    async def search_vacancies(self, params: dict[str, Any]) -> dict[str, Any]:
+        self.search_calls.append(params)
+        raise HHApiForbiddenError()
 
 
 def make_session() -> Session:
@@ -85,6 +92,25 @@ async def test_readonly_pipeline_saves_vacancy_and_score(profile: CandidateProfi
     assert len(vacancies) == 1
     assert vacancies[0].score is not None
     assert vacancies[0].score.score >= 55
+
+
+async def test_readonly_pipeline_reports_hh_api_forbidden(profile: CandidateProfile) -> None:
+    session = make_session()
+    client = ForbiddenHHClient({})
+    pipeline = ReadOnlyVacancyPipeline(
+        hh_client=client,
+        session=session,
+        profile=profile,
+        searches_config=make_searches(),
+    )
+
+    summary = await pipeline.run()
+
+    assert summary.errors == 1
+    assert summary.saved == 0
+    assert summary.error_messages == [
+        "hh API returned 403 forbidden. Search cannot continue from this network/environment."
+    ]
 
 
 async def test_readonly_pipeline_detects_duplicates(profile: CandidateProfile) -> None:

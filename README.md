@@ -38,6 +38,47 @@ cp configs/searches.example.yaml configs/searches.yaml
 curl http://127.0.0.1:8000/health
 ```
 
+## Windows 11 / Git Bash
+
+В Git Bash используйте `/`, а не `\`. Не используйте PowerShell-формат `.\venv\Scripts\python.exe` внутри Git Bash.
+
+```bash
+python -m venv venv
+source venv/Scripts/activate
+python -m pip install -e ".[dev]"
+python -m playwright install chromium
+cp .env.example .env
+cp configs/profile.example.yaml configs/profile.yaml
+cp configs/searches.example.yaml configs/searches.yaml
+python -m uvicorn app.main:create_app --factory --reload --host 127.0.0.1 --port 8000
+```
+
+Browser-profile команды для ручной проверки:
+
+```bash
+python -m app.cli browser-login
+python -m app.cli browser-check-login --pause
+python -m app.cli browser-open-vacancy 1 --pause
+```
+
+Если `curl` с кириллическим JSON в Git Bash ломает тело запроса, отправляйте UTF-8 JSON из файла:
+
+```bash
+python - <<'PY'
+import json
+from pathlib import Path
+
+payload = {"instruction": "Сделай письмо короче и живее"}
+Path("tmp_rewrite.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+PY
+
+curl -X POST http://127.0.0.1:8000/api/vacancies/1/cover-letter/rewrite \
+  -H "Content-Type: application/json; charset=utf-8" \
+  --data-binary @tmp_rewrite.json
+```
+
+`tmp_rewrite.json` нужен только для локальной проверки и не должен попадать в git.
+
 ## Тесты и проверки
 
 ```bash
@@ -82,7 +123,9 @@ cp configs/searches.example.yaml configs/searches.yaml
 ```bash
 ./venv/bin/python -m app.cli browser-login
 ./venv/bin/python -m app.cli browser-check-login
+./venv/bin/python -m app.cli browser-check-login --pause
 ./venv/bin/python -m app.cli browser-open-vacancy <local-vacancy-id>
+./venv/bin/python -m app.cli browser-open-vacancy <local-vacancy-id> --pause
 ```
 
 Web UI показывает состояние browser-profile login check на главной странице. На странице вакансии можно открыть сохранённую вакансию в отдельном профиле проекта. Эти действия не отправляют отклик.

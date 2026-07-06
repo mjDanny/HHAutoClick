@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.prompts.cover_letter import build_cover_letter_prompt
 from app.ai.providers.base import LLMMessage, LLMProvider, LLMRequest
-from app.ai.validator import CoverLetterValidator
+from app.ai.validator import CoverLetterValidator, clean_cover_letter_text
 from app.core.config import CandidateProfile
 from app.hh.models import NormalizedVacancy
 from app.storage.models import CoverLetter, Vacancy
@@ -94,11 +94,12 @@ class ReviewWorkflowService:
                 ],
             )
         )
-        validation = self.validator.validate(response.content)
+        body = clean_cover_letter_text(response.content)
+        validation = self.validator.validate(body)
         draft = self.cover_letters.create_cover_letter_draft(
             vacancy_id=vacancy.id,
             prompt=prompt,
-            body=response.content,
+            body=body,
             provider=response.provider,
             model=response.model,
             validation=validation,

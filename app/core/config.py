@@ -49,8 +49,24 @@ class Settings(BaseSettings):
     browser_profile_dir: Path = Path(".local/browser-profile")
     browser_headless: bool = False
     browser_channel: BrowserChannel = "chromium"
+    browser_debug_pause: bool = False
     use_oauth: bool = False
     use_browser_profile: bool = True
+
+    @field_validator(
+        "hh_access_token",
+        "hh_resume_id",
+        "openai_compatible_api_key",
+        "openai_compatible_model",
+        "telegram_bot_token",
+        "telegram_admin_chat_id",
+        mode="before",
+    )
+    @classmethod
+    def empty_optional_env_to_none(cls, value: object) -> object:
+        if value == "":
+            return None
+        return value
 
     @field_validator("min_score_for_review", "min_score_for_auto_apply")
     @classmethod

@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.ai.scorer import RuleBasedVacancyScorer
 from app.core.config import CandidateProfile, SearchesConfig
+from app.hh.api_client import HHApiForbiddenError
 from app.hh.filters import BlacklistFilter
 from app.hh.normalizer import normalize_vacancy
-from app.storage.repositories import BlacklistRepository, VacancyRepository
+from app.storage.repositories import BlacklistRepository, EventLogRepository, VacancyRepository
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,7 @@ class ReadOnlyVacancyPipeline:
     ) -> None:
         self.hh_client = hh_client
         self.repository = VacancyRepository(session)
+        self.events = EventLogRepository(session)
         self.blacklist_repository = BlacklistRepository(session)
         self.profile = profile
         self.searches_config = searches_config
@@ -72,6 +74,10 @@ class ReadOnlyVacancyPipeline:
 
             try:
                 payload = await self.hh_client.search_vacancies(params)
+            except HHApiForbiddenError as exc:
+                self._record_error(summary, str(exc))
+                self.repository.session.commit()
+                continue
             except Exception as exc:  # noqa: BLE001
                 self._record_error(summary, f"search {search.name!r} failed: {exc}")
                 continue
@@ -130,3 +136,4 @@ class ReadOnlyVacancyPipeline:
         logger.error(message)
         summary.errors += 1
         summary.error_messages.append(message)
+        self.events.add_event("ERROR", "readonly_pipeline_error", message[:500])

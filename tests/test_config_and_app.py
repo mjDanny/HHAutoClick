@@ -25,7 +25,22 @@ def test_settings_defaults_are_review_first() -> None:
     assert settings.use_browser_profile is True
     assert settings.browser_headless is False
     assert settings.browser_channel == "chromium"
+    assert settings.browser_debug_pause is False
     assert str(settings.browser_profile_dir) == ".local/browser-profile"
+
+
+def test_settings_empty_optional_env_values_become_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TELEGRAM_ADMIN_CHAT_ID", "")
+    monkeypatch.setenv("HH_ACCESS_TOKEN", "")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "")
+    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "")
+
+    settings = Settings()
+
+    assert settings.telegram_admin_chat_id is None
+    assert settings.hh_access_token is None
+    assert settings.telegram_bot_token is None
+    assert settings.openai_compatible_api_key is None
 
 
 def test_yaml_configs_load() -> None:

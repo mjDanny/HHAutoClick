@@ -42,7 +42,7 @@ class BrowserWorkflowService:
         self.events = EventLogRepository(session)
         self.vacancies = VacancyRepository(session)
 
-    async def check_login(self) -> BrowserLoginCheckResult:
+    async def check_login(self, *, pause: bool = False) -> BrowserLoginCheckResult:
         context = await self.manager.open_persistent_context()
         try:
             result = await self.client.check_login(context)
@@ -56,18 +56,26 @@ class BrowserWorkflowService:
                 event,
                 f"browser_status={result.status}",
             )
+            self._pause_before_close(result, pause=pause)
             return result
         finally:
             await self.manager.close()
 
-    async def open_login_page(self) -> BrowserLoginCheckResult:
+    async def open_login_page(self, *, pause: bool = False) -> BrowserLoginCheckResult:
         context = await self.manager.open_persistent_context()
         try:
-            return await self.client.open_login_page(context)
+            result = await self.client.open_login_page(context)
+            self._pause_before_close(result, pause=pause)
+            return result
         finally:
             await self.manager.close()
 
-    async def open_vacancy(self, vacancy_id: int) -> BrowserPageCheckResult | None:
+    async def open_vacancy(
+        self,
+        vacancy_id: int,
+        *,
+        pause: bool = False,
+    ) -> BrowserPageCheckResult | None:
         item = self.vacancies.get_with_score(vacancy_id)
         if not item or not item.vacancy.url:
             return None
@@ -96,6 +104,7 @@ class BrowserWorkflowService:
                         f"browser_status={result.status}"
                     ),
                 )
+            self._pause_before_close(result, pause=pause)
             return result
         finally:
             await self.manager.close()
@@ -103,3 +112,13 @@ class BrowserWorkflowService:
     @staticmethod
     def result_to_dict(result: BrowserLoginCheckResult | BrowserPageCheckResult) -> dict[str, str]:
         return asdict(result)
+
+    def _pause_before_close(
+        self,
+        result: BrowserLoginCheckResult | BrowserPageCheckResult,
+        *,
+        pause: bool,
+    ) -> None:
+        if pause:
+            print(f"{result.status}: {result.message} ({result.url})")
+            input("Press Enter to close browser...")

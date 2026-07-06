@@ -29,6 +29,16 @@ CONFIDENT_PATTERNS = [
     r"production[-\s]+опыт",
 ]
 
+INSTRUCTION_LEAKAGE_PHRASES = [
+    "сделайте письмо",
+    "верните только",
+    "не длиннее",
+    "ats-friendly",
+    "готовый текст письма",
+    "без пояснений",
+    "служебных инструкций",
+]
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -53,6 +63,15 @@ class CoverLetterValidator:
             warnings.append("cover letter should start with a greeting")
 
         lowered = text.lower()
+        leaked_phrases = [
+            phrase for phrase in INSTRUCTION_LEAKAGE_PHRASES if phrase in lowered
+        ]
+        if leaked_phrases:
+            errors.append(
+                "service instruction leakage detected: "
+                + ", ".join(sorted(leaked_phrases))
+            )
+
         for tech in self.growth_only_tech:
             tech_pattern = re.escape(tech.lower())
             has_tech = re.search(tech_pattern, lowered)
@@ -74,3 +93,13 @@ class CoverLetterValidator:
         window_end = min(len(lowered_text), tech_index + len(tech_lower) + 80)
         window = lowered_text[window_start:window_end]
         return any(re.search(pattern, window) for pattern in CONFIDENT_PATTERNS)
+
+
+def clean_cover_letter_text(text: str) -> str:
+    lines = []
+    for line in text.splitlines():
+        lowered_line = line.lower()
+        if any(phrase in lowered_line for phrase in INSTRUCTION_LEAKAGE_PHRASES):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()

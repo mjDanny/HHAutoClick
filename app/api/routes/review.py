@@ -16,7 +16,7 @@ from app.api.schemas.review import (
 from app.core.config import MissingConfigError, load_local_profile
 from app.services.review_workflow import ReviewWorkflowService
 from app.storage.models import CoverLetter
-from app.storage.repositories import BlacklistRepository, CoverLetterRepository, VacancyRepository
+from app.storage.repositories import BlacklistRepository, CoverLetterRepository
 
 router = APIRouter(prefix="/api", tags=["review"])
 
@@ -58,7 +58,8 @@ def skip_vacancy(
     payload: ReviewActionRequest | None = None,
     session: Session = Depends(get_db_session),
 ) -> ReviewActionResponse:
-    vacancy = VacancyRepository(session).skip_vacancy(
+    service = ReviewWorkflowService(session=session)
+    vacancy = service.skip_vacancy(
         vacancy_id,
         payload.reason if payload else None,
     )
@@ -74,18 +75,8 @@ def blacklist_company(
     payload: ReviewActionRequest | None = None,
     session: Session = Depends(get_db_session),
 ) -> ReviewActionResponse:
-    vacancy_repository = VacancyRepository(session)
-    item = vacancy_repository.get_with_score(vacancy_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Vacancy not found")
-    vacancy = item.vacancy
-    if vacancy.company:
-        BlacklistRepository(session).blacklist_company(
-            vacancy.company,
-            payload.reason if payload else None,
-        )
-    vacancy.status = "blacklisted"
-    session.flush()
+    service = ReviewWorkflowService(session=session)
+    vacancy = service.blacklist_company(vacancy_id, payload.reason if payload else None)
     if not vacancy:
         raise HTTPException(status_code=404, detail="Vacancy not found")
     session.commit()

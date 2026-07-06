@@ -8,7 +8,14 @@ from sqlalchemy.orm import Session
 from app.ai.scorer import ScoreResult
 from app.ai.validator import ValidationResult
 from app.hh.models import NormalizedVacancy
-from app.storage.models import Application, BlacklistEntry, CoverLetter, Vacancy, VacancyScore
+from app.storage.models import (
+    Application,
+    BlacklistEntry,
+    CoverLetter,
+    EventLog,
+    Vacancy,
+    VacancyScore,
+)
 
 
 def _salary_text(vacancy: NormalizedVacancy) -> str | None:
@@ -319,6 +326,21 @@ class BlacklistRepository:
 
     def list_entries(self) -> list[BlacklistEntry]:
         statement = select(BlacklistEntry).order_by(BlacklistEntry.created_at.desc())
+        return list(self.session.scalars(statement))
+
+
+class EventLogRepository:
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def add_event(self, level: str, event: str, message: str) -> EventLog:
+        model = EventLog(level=level, event=event, message=message)
+        self.session.add(model)
+        self.session.flush()
+        return model
+
+    def list_events(self) -> list[EventLog]:
+        statement = select(EventLog).order_by(EventLog.created_at.desc(), EventLog.id.desc())
         return list(self.session.scalars(statement))
 
 

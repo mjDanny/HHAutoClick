@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, cast
 
@@ -14,7 +15,7 @@ from app.core.config import Settings
 from app.hh.normalizer import normalize_vacancy
 from app.main import create_app
 from app.storage.db import Base
-from app.storage.repositories import VacancyRepository
+from app.storage.repositories import EventLogRepository, VacancyRepository
 
 
 def make_payload() -> dict[str, Any]:
@@ -60,6 +61,30 @@ def make_test_client(profile) -> TestClient:
 
     app.dependency_overrides[get_db_session] = override_session
     return TestClient(app)
+
+
+def event_names(client: TestClient) -> list[str]:
+    app = cast(FastAPI, client.app)
+    override = app.dependency_overrides[get_db_session]
+    session_generator = override()
+    session = next(session_generator)
+    try:
+        return [event.event for event in EventLogRepository(session).list_events()]
+    finally:
+        with suppress(StopIteration):
+            next(session_generator)
+
+
+def event_messages(client: TestClient) -> list[str]:
+    app = cast(FastAPI, client.app)
+    override = app.dependency_overrides[get_db_session]
+    session_generator = override()
+    session = next(session_generator)
+    try:
+        return [event.message for event in EventLogRepository(session).list_events()]
+    finally:
+        with suppress(StopIteration):
+            next(session_generator)
 
 
 def test_api_vacancies_and_stats(profile) -> None:
@@ -117,6 +142,8 @@ def test_api_skip_and_blacklist_endpoints(profile) -> None:
     assert blacklist_entries.status_code == 200
     assert blacklist_entries.json()[0]["kind"] == "company"
     assert blacklist_entries.json()[0]["value"] == "Example"
+    assert "vacancy_skipped" in event_names(client)
+    assert "company_blacklisted" in event_names(client)
 
 
 def test_api_generate_rewrite_and_list_cover_letters(profile) -> None:
@@ -134,6 +161,9 @@ def test_api_generate_rewrite_and_list_cover_letters(profile) -> None:
     assert rewrite_response.status_code == 200
     assert list_response.status_code == 200
     assert len(list_response.json()) == 2
+    assert "cover_letter_generated" in event_names(client)
+    assert "cover_letter_rewritten" in event_names(client)
+    assert all("Хочу откликнуться" not in message for message in event_messages(client))
 
 
 def test_api_invalid_cover_letter_stores_validation_errors(profile) -> None:

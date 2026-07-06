@@ -8,6 +8,13 @@
     {% if vacancy.url %}
       <p><a class="button" href="{{ vacancy.url }}" target="_blank" rel="noopener">Open on hh.ru</a></p>
     {% endif %}
+    {% if browser_status %}
+      <p>Browser status: <span class="status">{{ browser_status }}</span></p>
+      <p class="muted">{{ browser_message }}</p>
+    {% endif %}
+    <form method="post" action="/vacancies/{{ vacancy.id }}/open-browser-profile">
+      <button type="submit">Open in browser profile</button>
+    </form>
   </section>
 
   <section class="panel">

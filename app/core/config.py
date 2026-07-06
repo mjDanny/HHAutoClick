@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     searches_config_path: Path = Path("configs/searches.yaml")
 
     hh_base_url: str = "https://api.hh.ru"
+    hh_base_web_url: str = "https://hh.ru"
     hh_user_agent: str = "personal-hh-job-autopilot/0.1"
     hh_access_token: str | None = None
     hh_resume_id: str | None = None

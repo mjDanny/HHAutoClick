@@ -1,14 +1,10 @@
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
 
-from playwright.async_api import Playwright, async_playwright
+from playwright.async_api import BrowserContext, Playwright, async_playwright
 
-from app.browser.hh_browser_client import HHBrowserClient
 from app.core.config import BrowserChannel, Settings
-from app.core.exceptions import ManualReviewRequired
 
 
 class BrowserPageLike(Protocol):
@@ -32,9 +28,6 @@ class BrowserContextLike(Protocol):
         raise NotImplementedError
 
 
-LoginCheckStatus = Literal["authenticated", "needs_manual_review"]
-
-
 @dataclass(frozen=True)
 class BrowserSessionConfig:
     profile_dir: Path
@@ -55,7 +48,7 @@ class BrowserSessionConfig:
 @dataclass(frozen=True)
 class LoginCheckResult:
     authenticated: bool
-    status: LoginCheckStatus
+    status: str
     reason: str | None = None
 
 
@@ -63,56 +56,35 @@ class BrowserSessionManager:
     def __init__(
         self,
         config: BrowserSessionConfig,
-        hh_browser_client: HHBrowserClient | None = None,
     ) -> None:
         self.config = config
-        self.hh_browser_client = hh_browser_client or HHBrowserClient()
+        self._playwright: Playwright | None = None
+        self._context: BrowserContext | None = None
 
-    @asynccontextmanager
-    async def persistent_context(self) -> AsyncIterator[Any]:
+    async def ensure_profile_dir(self) -> Path:
         self.config.profile_dir.mkdir(parents=True, exist_ok=True)
-        playwright: Playwright = await async_playwright().start()
-        context = await playwright.chromium.launch_persistent_context(
+        return self.config.profile_dir
+
+    async def open_persistent_context(self) -> BrowserContext:
+        await self.ensure_profile_dir()
+        if self._context:
+            return self._context
+
+        self._playwright = await async_playwright().start()
+        self._context = await self._playwright.chromium.launch_persistent_context(
             user_data_dir=str(self.config.profile_dir),
             headless=self.config.headless,
             channel=self._playwright_channel(),
         )
-        try:
-            yield context
-        finally:
-            await context.close()
-            await playwright.stop()
+        return self._context
 
-    async def check_login(self, context: BrowserContextLike) -> LoginCheckResult:
-        page = await context.new_page()
-        try:
-            await page.goto(self.config.login_check_url, wait_until="domcontentloaded")
-            await self.hh_browser_client.assert_safe_page(page)
-            return LoginCheckResult(authenticated=True, status="authenticated")
-        except ManualReviewRequired as exc:
-            return LoginCheckResult(
-                authenticated=False,
-                status="needs_manual_review",
-                reason=str(exc),
-            )
-        finally:
-            await page.close()
-
-    async def open_vacancy(self, context: BrowserContextLike, url: str) -> BrowserPageLike:
-        return await self._open_checked_page(context, url)
-
-    async def open_apply_url(self, context: BrowserContextLike, url: str) -> BrowserPageLike:
-        return await self._open_checked_page(context, url)
-
-    async def _open_checked_page(self, context: BrowserContextLike, url: str) -> BrowserPageLike:
-        page = await context.new_page()
-        try:
-            await page.goto(url, wait_until="domcontentloaded")
-            await self.hh_browser_client.assert_safe_page(page)
-            return page
-        except ManualReviewRequired:
-            await page.close()
-            raise
+    async def close(self) -> None:
+        if self._context:
+            await self._context.close()
+            self._context = None
+        if self._playwright:
+            await self._playwright.stop()
+            self._playwright = None
 
     def _playwright_channel(self) -> str | None:
         if self.config.channel == "chromium":

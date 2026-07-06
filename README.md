@@ -6,12 +6,12 @@ MVP намеренно построен вокруг безопасного ре
 
 ## Что уже есть
 
-- модульная структура FastAPI + сервисы + Telegram skeleton + Playwright skeleton;
+- модульная структура FastAPI + сервисы + Telegram skeleton + browser-profile слой;
 - официальный hh.ru API client для поиска и получения вакансий;
 - read-only pipeline: search config -> hh API -> normalize -> filter -> score -> store;
 - JSON API и простой server-rendered dashboard для просмотра вакансий;
 - локальный review workflow: skip, blacklist company, cover letter drafts and validation;
-- foundation для отдельного Playwright persistent browser profile;
+- отдельный Playwright persistent browser profile с login check и безопасным открытием вакансии;
 - нормализация вакансий;
 - rule-based scoring под профиль Python Backend / AI Backend Developer;
 - абстракция LLM-провайдера: Ollama и OpenAI-compatible API;
@@ -77,6 +77,16 @@ cp configs/searches.example.yaml configs/searches.yaml
 
 Если обнаружены login page, CAPTCHA/challenge, вопросы работодателя или тестовое задание, сценарий останавливается и переходит в ручной review. Основной личный браузер пользователя по умолчанию не используется.
 
+Команды:
+
+```bash
+./venv/bin/python -m app.cli browser-login
+./venv/bin/python -m app.cli browser-check-login
+./venv/bin/python -m app.cli browser-open-vacancy <local-vacancy-id>
+```
+
+Web UI показывает состояние browser-profile login check на главной странице. На странице вакансии можно открыть сохранённую вакансию в отдельном профиле проекта. Эти действия не отправляют отклик.
+
 ## Read-only Pipeline
 
 Pipeline не отправляет отклики. Он только ищет вакансии через официальный API hh.ru, получает детали, нормализует данные, применяет blacklist/dedupe, считает rule-based score и сохраняет результат в SQLite.
@@ -107,6 +117,8 @@ http://127.0.0.1:8000/vacancies
 - `POST /api/vacancies/{vacancy_id}/cover-letter/rewrite`
 - `GET /api/vacancies/{vacancy_id}/cover-letters`
 - `GET /api/blacklist`
+- `POST /api/browser/check-login`
+- `POST /api/browser/open-vacancy/{vacancy_id}`
 
 `GET /api/vacancies` поддерживает `limit`, `offset`, `min_score`, `status`, `company`, `q`.
 
@@ -140,6 +152,7 @@ Cover letter validation блокирует уверенные claims по неп
 - OAuth flow hh.ru для соискателя как optional/future mode;
 - Alembic migrations перед долгим использованием существующей базы;
 - scheduler loop с persistent jobs;
-- обработка реальных форм вопросов работодателя в браузере.
+- сохранение содержимого реальных форм вопросов работодателя в браузере;
+- реальное открытие apply URL и отправка отклика.
 
-Следующий практичный шаг: browser-profile login check или Telegram approval flow.
+Следующий практичный шаг: manual apply draft flow поверх уже подготовленного browser-profile слоя.

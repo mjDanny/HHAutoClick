@@ -11,11 +11,48 @@ from sqlalchemy.pool import StaticPool
 
 from app.ai.providers.base import FakeLLMProvider
 from app.api.deps import get_db_session
+from app.browser.hh_browser_client import BrowserLoginCheckResult, BrowserPageCheckResult
 from app.core.config import Settings
 from app.hh.normalizer import normalize_vacancy
 from app.main import create_app
 from app.storage.db import Base
 from app.storage.repositories import EventLogRepository, VacancyRepository
+
+
+class FakeBrowserManager:
+    def __init__(self) -> None:
+        self.closed = False
+
+    async def open_persistent_context(self) -> object:
+        return object()
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+class FakeBrowserClient:
+    def __init__(
+        self,
+        *,
+        login_result: BrowserLoginCheckResult | None = None,
+        page_result: BrowserPageCheckResult | None = None,
+    ) -> None:
+        self.login_result = login_result or BrowserLoginCheckResult(
+            "logged_in",
+            "https://hh.ru/applicant/resumes",
+            "Browser profile is logged in",
+        )
+        self.page_result = page_result or BrowserPageCheckResult(
+            "ok",
+            "https://hh.ru/vacancy/42",
+            "Vacancy page opened safely",
+        )
+
+    async def check_login(self, context: object) -> BrowserLoginCheckResult:
+        return self.login_result
+
+    async def open_vacancy(self, context: object, vacancy_url: str) -> BrowserPageCheckResult:
+        return self.page_result
 
 
 def make_payload() -> dict[str, Any]:
@@ -61,6 +98,20 @@ def make_test_client(profile) -> TestClient:
 
     app.dependency_overrides[get_db_session] = override_session
     return TestClient(app)
+
+
+def set_fake_browser(
+    client: TestClient,
+    *,
+    login_result: BrowserLoginCheckResult | None = None,
+    page_result: BrowserPageCheckResult | None = None,
+) -> None:
+    app = cast(FastAPI, client.app)
+    app.state.browser_session_manager = FakeBrowserManager()
+    app.state.hh_browser_client = FakeBrowserClient(
+        login_result=login_result,
+        page_result=page_result,
+    )
 
 
 def event_names(client: TestClient) -> list[str]:
@@ -192,3 +243,62 @@ def test_web_vacancy_detail_shows_draft_and_validation_status(profile) -> None:
     assert response.status_code == 200
     assert "Latest cover letter draft" in response.text
     assert "No validation errors" in response.text
+
+
+def test_browser_check_login_endpoint_returns_logged_in(profile) -> None:
+    client = make_test_client(profile)
+    set_fake_browser(client)
+
+    response = client.post("/api/browser/check-login")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "logged_in"
+    assert "browser_login_checked" in event_names(client)
+
+
+def test_browser_check_login_endpoint_returns_logged_out(profile) -> None:
+    client = make_test_client(profile)
+    set_fake_browser(
+        client,
+        login_result=BrowserLoginCheckResult(
+            "logged_out",
+            "https://hh.ru/account/login",
+            "Login page detected",
+        ),
+    )
+
+    response = client.post("/api/browser/check-login")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "logged_out"
+
+
+def test_browser_open_vacancy_endpoint_uses_saved_vacancy(profile) -> None:
+    client = make_test_client(profile)
+    set_fake_browser(client)
+
+    response = client.post("/api/browser/open-vacancy/1")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    assert "browser_vacancy_opened" in event_names(client)
+
+
+def test_browser_open_vacancy_marks_manual_review_for_captcha(profile) -> None:
+    client = make_test_client(profile)
+    set_fake_browser(
+        client,
+        page_result=BrowserPageCheckResult(
+            "captcha",
+            "https://hh.ru/account/captcha",
+            "CAPTCHA detected",
+        ),
+    )
+
+    response = client.post("/api/browser/open-vacancy/1")
+    vacancy_response = client.get("/api/vacancies/1")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "captcha"
+    assert vacancy_response.json()["status"] == "needs_manual_review"
+    assert "browser_challenge_detected" in event_names(client)

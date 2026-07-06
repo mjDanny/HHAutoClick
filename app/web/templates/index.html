@@ -13,5 +13,19 @@
     <p>Skipped: <strong>{{ stats.skipped }}</strong></p>
     <p><a class="button" href="/vacancies">Open vacancy list</a></p>
   </section>
-{% endblock %}
 
+  <section class="panel">
+    <h2>Browser Profile</h2>
+    <p>USE_BROWSER_PROFILE: <strong>{{ settings.use_browser_profile }}</strong></p>
+    <p>BROWSER_PROFILE_DIR: <strong>{{ settings.browser_profile_dir }}</strong></p>
+    <p>BROWSER_HEADLESS: <strong>{{ settings.browser_headless }}</strong></p>
+    <p>BROWSER_CHANNEL: <strong>{{ settings.browser_channel }}</strong></p>
+    {% if browser_status %}
+      <p>Status: <span class="status">{{ browser_status }}</span></p>
+      <p class="muted">{{ browser_message }}</p>
+    {% endif %}
+    <form method="post" action="/browser/check-login">
+      <button type="submit">Check browser login</button>
+    </form>
+  </section>
+{% endblock %}

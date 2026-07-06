@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.routes.browser import router as browser_router
 from app.api.routes.health import router as health_router
 from app.api.routes.pipeline import router as pipeline_router
 from app.api.routes.review import router as review_router
@@ -18,6 +19,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = app_settings
     init_db(app_settings.database_url)
     app.include_router(health_router)
+    app.include_router(browser_router)
     app.include_router(pipeline_router)
     app.include_router(review_router)
     app.include_router(vacancies_router)

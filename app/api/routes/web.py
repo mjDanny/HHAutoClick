@@ -1,5 +1,5 @@
 import json
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.ai.providers.factory import build_llm_provider
 from app.api.deps import get_db_session
 from app.core.config import load_local_profile
+from app.services.browser_workflow import BrowserWorkflowService
 from app.services.review_workflow import ReviewWorkflowService
 from app.storage.models import Vacancy, VacancyScore
 from app.storage.repositories import (
@@ -74,12 +75,23 @@ async def _form_value(request: Request, key: str) -> str | None:
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request, session: Session = Depends(get_db_session)) -> HTMLResponse:
+def index(
+    request: Request,
+    browser_status: str | None = None,
+    browser_message: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> HTMLResponse:
     stats = VacancyRepository(session).stats()
+    settings = request.app.state.settings
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"stats": stats},
+        {
+            "stats": stats,
+            "settings": settings,
+            "browser_status": browser_status,
+            "browser_message": browser_message,
+        },
     )
 
 
@@ -117,6 +129,8 @@ def vacancies_page(
 def vacancy_page(
     vacancy_id: int,
     request: Request,
+    browser_status: str | None = None,
+    browser_message: str | None = None,
     session: Session = Depends(get_db_session),
 ) -> HTMLResponse:
     item = VacancyRepository(session).get_with_score(vacancy_id)
@@ -131,7 +145,44 @@ def vacancy_page(
             "vacancy": _vacancy_context(item),
             "drafts": drafts,
             "latest_draft": drafts[0] if drafts else None,
+            "browser_status": browser_status,
+            "browser_message": browser_message,
         },
+    )
+
+
+@router.post("/browser/check-login")
+async def check_browser_login_page(
+    request: Request,
+    session: Session = Depends(get_db_session),
+) -> RedirectResponse:
+    settings = request.app.state.settings
+    service = BrowserWorkflowService(settings=settings, session=session)
+    result = await service.check_login()
+    session.commit()
+    query = urlencode({"browser_status": result.status, "browser_message": result.message})
+    return RedirectResponse(
+        f"/?{query}",
+        status_code=303,
+    )
+
+
+@router.post("/vacancies/{vacancy_id}/open-browser-profile")
+async def open_vacancy_browser_page(
+    vacancy_id: int,
+    request: Request,
+    session: Session = Depends(get_db_session),
+) -> RedirectResponse:
+    settings = request.app.state.settings
+    service = BrowserWorkflowService(settings=settings, session=session)
+    result = await service.open_vacancy(vacancy_id)
+    session.commit()
+    if result is None:
+        raise HTTPException(status_code=404, detail="Vacancy not found")
+    query = urlencode({"browser_status": result.status, "browser_message": result.message})
+    return RedirectResponse(
+        f"/vacancies/{vacancy_id}?{query}",
+        status_code=303,
     )
 
 

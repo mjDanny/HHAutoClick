@@ -68,6 +68,14 @@ First run:
 
 The app does not connect to the user's main personal browser by default. It does not touch personal tabs, cookies, history, or existing browser profiles outside the project profile directory.
 
+Implemented entry points:
+
+- CLI: `browser-login`, `browser-check-login`, `browser-open-vacancy <local-vacancy-id>`;
+- API: `POST /api/browser/check-login`, `POST /api/browser/open-vacancy/{vacancy_id}`;
+- Web UI: login check on the index page and “Open in browser profile” on a vacancy page.
+
+The current implementation opens saved vacancy URLs and checks page state. It does not submit applications and does not fill employer forms.
+
 ## Playwright Usage
 
 Playwright is not the primary API layer. It is reserved for:
@@ -77,7 +85,9 @@ Playwright is not the primary API layer. It is reserved for:
 - detecting CAPTCHA or unexpected challenge pages;
 - detecting employer questions/tests/forms when official API data is insufficient.
 
-On CAPTCHA, challenge, login page, blocked page, unexpected form structure, employer questions, or test tasks, browser automation stops and records `needs_manual_review`.
+Browser detection states are conservative: `logged_in`, `logged_out`, `captcha`, `challenge`, `ok`, `login_required`, `employer_questions`, `test_task`, and `unknown`.
+
+On CAPTCHA, challenge, login page, blocked page, unexpected form structure, employer questions, test tasks, or unknown state, browser automation stops and records `needs_manual_review` where a vacancy is involved.
 
 No CAPTCHA bypass, anti-detect browser, proxy rotation, fingerprint spoofing, or hidden automation is implemented or planned for MVP.
 

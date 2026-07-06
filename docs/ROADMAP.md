@@ -39,12 +39,15 @@
 
 ## Phase 3 - Playwright persistent profile
 
-- Use `.local/browser-profile` as a separate project browser profile.
-- First run opens visible browser; user logs in manually to hh.ru.
-- Add `HH_LOGIN_CHECK_URL` login check.
-- Open vacancy and apply URLs in the project profile.
-- Detect login/CAPTCHA/challenge and mark `needs_manual_review`.
-- Detect employer questions/test tasks and save them for review.
+- Use `.local/browser-profile` as a separate project browser profile. Done.
+- First run opens visible browser; user logs in manually to hh.ru. Done.
+- Add `HH_LOGIN_CHECK_URL` login check. Done.
+- Add CLI, API, and Web UI entry points for login check. Done.
+- Open saved vacancy URLs in the project profile. Done.
+- Detect login/CAPTCHA/challenge and mark `needs_manual_review`. Done.
+- Detect employer questions/test tasks and route to manual review. Done.
+- Save extracted employer questions/test-task content for review.
+- Open apply URLs in the project profile.
 - Prepare manual apply draft flow without real sending.
 - Keep `DRY_RUN=true` default.
 
